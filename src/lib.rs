@@ -1,5 +1,6 @@
 use std::ops::{Mul, Sub};
 
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -14,6 +15,12 @@ impl Vector {
     #[wasm_bindgen(constructor)]
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
+    }
+
+    // We need this because it's not possible to export the trait implementation.
+    //
+    pub fn scale(self, value: f64) -> Self {
+        self * value
     }
 }
 
@@ -36,6 +43,12 @@ impl Mul<f64> for Vector {
             x: self.x * rhs,
             y: self.y * rhs,
         }
+    }
+}
+
+impl From<&Vector> for JsValue {
+    fn from(vector: &Vector) -> Self {
+        JsValue::from(vector.clone())
     }
 }
 
@@ -74,5 +87,9 @@ impl Game {
             food,
             snake,
         }
+    }
+
+    pub fn snake(&self) -> Array {
+        self.snake.iter().map(JsValue::from).collect()
     }
 }

@@ -1,10 +1,16 @@
 import { Game, Vector } from 'wasm-snake-game'
 
 import CONFIG from './config'
+import { View } from './view'
 
 export class GameManager {
   constructor() {
     this.restart()
+    this.view = new View(
+      this.game.width,
+      this.game.height,
+      this.render.bind(this)
+    )
   }
 
   restart() {
@@ -21,7 +27,16 @@ export class GameManager {
     console.log(this.game)
   }
 
+  render() {
+    this.view.render(
+      this.game.food,
+      this.game.snake(),
+      this.game.score,
+      0
+    )
+  }
+
   run() {
-    console.log('Running game...')
+    this.render()
   }
 }
