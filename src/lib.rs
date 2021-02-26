@@ -1,7 +1,20 @@
 use std::ops::{Mul, Sub};
 
 use js_sys::Array;
+use rand::seq::SliceRandom;
 use wasm_bindgen::prelude::*;
+
+trait ApproximateEq {
+    const X_EPSILON: f64 = 0.00001;
+
+    fn approximate_eq(&self, other: Self) -> bool;
+}
+
+impl ApproximateEq for f64 {
+    fn approximate_eq(&self, other: f64) -> bool {
+        (self - other).abs() < f64::EPSILON
+    }
+}
 
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
@@ -21,6 +34,10 @@ impl Vector {
     //
     pub fn scale(self, value: f64) -> Self {
         self * value
+    }
+
+    pub fn length(&self) -> f64 {
+        self.x.hypot(self.y)
     }
 }
 
@@ -52,6 +69,60 @@ impl From<&Vector> for JsValue {
     }
 }
 
+struct Segment {
+    pub start: Vector,
+    pub end: Vector,
+}
+
+impl Segment {
+    pub fn new(start: Vector, end: Vector) -> Self {
+        Self { start, end }
+    }
+
+    pub fn is_point_inside(&self, point: Vector) -> bool {
+        let first = Segment::new(self.start, point);
+        let second = Segment::new(point, self.end);
+
+        self.length()
+            .approximate_eq(first.length() + second.length())
+    }
+
+    fn vector(&self) -> Vector {
+        self.end - self.start
+    }
+
+    fn length(&self) -> f64 {
+        self.vector().length()
+    }
+}
+
+fn generate_food_position(width: i32, height: i32, snake: &[Vector]) -> Vector {
+    let mut free_positions: Vec<Vector> = Vec::new();
+
+    let segments = snake
+        .windows(2)
+        .map(|points| Segment::new(points[0], points[1]))
+        .collect::<Vec<_>>();
+
+    for x in 0..width {
+        for y in 0..height {
+            let point = Vector::new(x as f64 + 0.5, y as f64 + 0.5);
+
+            if !segments
+                .iter()
+                .any(|segment| segment.is_point_inside(point))
+            {
+                free_positions.push(point);
+            }
+        }
+    }
+
+    free_positions
+        .choose(&mut rand::thread_rng())
+        .unwrap()
+        .clone()
+}
+
 #[wasm_bindgen]
 pub struct Game {
     pub width: i32,
@@ -76,7 +147,7 @@ impl Game {
 
         let snake = vec![tail_tip, head];
 
-        let food = Vector::new(0.5, 0.5);
+        let food = generate_food_position(width, height, &snake);
 
         Game {
             width,
