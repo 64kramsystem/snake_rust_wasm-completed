@@ -1,4 +1,4 @@
-use std::ops::{Mul, Sub};
+use std::ops::{Add, Mul, Sub};
 
 use js_sys::Array;
 use rand::seq::SliceRandom;
@@ -38,6 +38,21 @@ impl Vector {
 
     pub fn length(&self) -> f64 {
         self.x.hypot(self.y)
+    }
+
+    pub fn normalize(self) -> Vector {
+        self * (1.0 / self.length())
+    }
+}
+
+impl Add<Vector> for Vector {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
     }
 }
 
@@ -162,5 +177,38 @@ impl Game {
 
     pub fn snake(&self) -> Array {
         self.snake.iter().map(JsValue::from).collect()
+    }
+
+    fn process_movement(&mut self, timespan: f64) {
+        let mut new_snake: Vec<Vector> = Vec::new();
+
+        let full_distance = self.speed * timespan;
+        let mut remaining_distance = full_distance;
+
+        while self.snake.len() > 1 {
+            let point = self.snake.remove(0);
+            let next = self.snake[0];
+            let segment = Segment::new(point, next);
+            let length = segment.length();
+
+            if length >= remaining_distance {
+                let vector = segment.vector().normalize() * remaining_distance;
+                new_snake.push(point.add(vector));
+                break;
+            } else {
+                remaining_distance -= length;
+            }
+        }
+        new_snake.append(&mut self.snake);
+        self.snake = new_snake;
+
+        let old_head = self.snake.pop().unwrap();
+        let new_head = old_head.add(self.direction * full_distance);
+
+        self.snake.push(new_head);
+    }
+
+    pub fn process(&mut self, timespan: f64) {
+        self.process_movement(timespan);
     }
 }
