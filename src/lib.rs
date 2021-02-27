@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Neg, Sub};
 
 use js_sys::Array;
 use rand::seq::SliceRandom;
@@ -45,6 +45,12 @@ impl Vector {
     }
 }
 
+impl PartialEq for Vector {
+    fn eq(&self, other: &Self) -> bool {
+        self.x.approximate_eq(other.x) && self.y.approximate_eq(other.y)
+    }
+}
+
 impl Add<Vector> for Vector {
     type Output = Self;
 
@@ -74,6 +80,17 @@ impl Mul<f64> for Vector {
         Self {
             x: self.x * rhs,
             y: self.y * rhs,
+        }
+    }
+}
+
+impl Neg for Vector {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
         }
     }
 }
@@ -139,6 +156,25 @@ fn generate_food_position(width: i32, height: i32, snake: &[Vector]) -> Vector {
 }
 
 #[wasm_bindgen]
+pub enum Movement {
+    Top,
+    Right,
+    Down,
+    Left,
+}
+
+impl Movement {
+    fn vector(&self) -> Vector {
+        let (new_x, new_y) = match self {
+            Movement::Top => (0.0, -1.0),
+            Movement::Right => (1.0, 0.0),
+            Movement::Down => (0.0, 1.0),
+            Movement::Left => (-1.0, 0.0),
+        };
+        Vector::new(new_x, new_y)
+    }
+}
+#[wasm_bindgen]
 pub struct Game {
     pub width: i32,
     pub height: i32,
@@ -179,7 +215,7 @@ impl Game {
         self.snake.iter().map(JsValue::from).collect()
     }
 
-    fn process_movement(&mut self, timespan: f64) {
+    fn process_movement(&mut self, timespan: f64, movement: Option<Movement>) {
         let mut new_snake: Vec<Vector> = Vec::new();
 
         let full_distance = self.speed * timespan;
@@ -205,10 +241,52 @@ impl Game {
         let old_head = self.snake.pop().unwrap();
         let new_head = old_head.add(self.direction * full_distance);
 
+        if let Some(movement) = movement {
+            let new_direction = movement.vector();
+
+            if self.direction != -new_direction && self.direction != new_direction {
+                let Vector { x: old_x, y: old_y } = old_head;
+                let old_x_rounded = old_x.round();
+                let old_y_rounded = old_y.round();
+                let new_x_rounded = new_head.x.round();
+                let new_y_rounded = new_head.y.round();
+
+                let rounded_x_changed = old_x_rounded != new_x_rounded;
+                let rounded_y_changed = old_y_rounded != new_y_rounded;
+
+                if rounded_x_changed || rounded_y_changed {
+                    let (old, old_rounded, new_rounded) = if rounded_x_changed {
+                        (old_x, old_x_rounded, new_x_rounded)
+                    } else {
+                        (old_y, old_y_rounded, new_y_rounded)
+                    };
+                    let breakpoint_component = if new_rounded > old_rounded {
+                        old_rounded + 0.5
+                    } else {
+                        old_rounded - 0.5
+                    };
+                    let breakpoint = if rounded_x_changed {
+                        Vector::new(breakpoint_component, old_y)
+                    } else {
+                        Vector::new(old_x, breakpoint_component)
+                    };
+                    let vector =
+                        new_direction * (full_distance - (old - breakpoint_component).abs());
+                    let head = breakpoint + vector;
+
+                    self.snake.push(breakpoint);
+                    self.snake.push(head);
+                    self.direction = new_direction;
+
+                    return;
+                }
+            }
+        }
+
         self.snake.push(new_head);
     }
 
-    pub fn process(&mut self, timespan: f64) {
-        self.process_movement(timespan);
+    pub fn process(&mut self, timespan: f64, movement: Option<Movement>) {
+        self.process_movement(timespan, movement);
     }
 }
