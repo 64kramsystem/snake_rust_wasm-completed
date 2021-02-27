@@ -6,26 +6,26 @@ export class View {
     this.gameHeight = gameHeight
     this.container = document.getElementById('container')
     this.onViewChange = onViewChange
-    this.setup()
+    this.setUp()
 
     window.addEventListener('resize', () => {
       const [child] = this.container.children
       if (child) {
         this.container.removeChild(child)
       }
-      this.setup()
+      this.setUp()
       this.onViewChange()
     })
   }
 
-  setup() {
+  setUp() {
     const { width, height } = this.container.getBoundingClientRect()
     this.unitOnScreen = Math.min(
       width / this.gameWidth,
       height / this.gameHeight
     )
     this.projectDistance = distance => distance * this.unitOnScreen
-    this.projectPosition = position => position.scale(this.unitOnScreen)
+    this.projectPosition = position => position.scale_by(this.unitOnScreen)
 
     const canvas = document.createElement('canvas')
     this.container.appendChild(canvas)
@@ -56,7 +56,7 @@ export class View {
           )
         )
     )
-    this.context.globalAlpha = 1.0
+    this.context.globalAlpha = 1
 
     const projectedFood = this.projectPosition(food)
     this.context.beginPath()

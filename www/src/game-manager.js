@@ -44,8 +44,9 @@ export class GameManager {
   render() {
     this.view.render(
       this.game.food,
-      this.game.snake(),
+      this.game.get_snake(),
       this.game.score,
+      // TODO actual best score
       0
     )
   }
@@ -53,11 +54,9 @@ export class GameManager {
   tick() {
     if (!this.stopTime) {
       const lastUpdate = Date.now()
-
       if (this.lastUpdate) {
         this.game.process(lastUpdate - this.lastUpdate, this.controller.movement)
       }
-
       this.lastUpdate = lastUpdate
       this.render()
     }
